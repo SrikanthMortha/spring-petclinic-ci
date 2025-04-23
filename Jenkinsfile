@@ -2,54 +2,53 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_SCANNER = 'SonarQube Scanner' // Name from Jenkins Global Tool Config
-        DOCKER_IMAGE = "srikanthmortha/spring-petclinic-ci:${BUILD_NUMBER}"
+        SONARQUBE = credentials('sonar-token') // already working
+        DOCKERHUB = credentials('dockerhub')   // just added
+        IMAGE_NAME = "srikanthmortha/spring-petclinic"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'git@github.com:SrikanthMortha/spring-petclinic-ci.git'
+                git url: 'git@github.com:SrikanthMortha/spring-petclinic-ci.git', branch: 'main'
             }
         }
 
         stage('Code Quality - SonarQube') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh 'mvn clean verify sonar:sonar'
+                    sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=spring-petclinic -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONARQUBE'
                 }
             }
         }
 
-        stage('Build') {
+        stage('Build JAR') {
             steps {
                 sh 'mvn clean package -DskipTests'
             }
         }
 
-        stage('Docker Build') {
+        stage('Build Docker Image') {
             steps {
-                script {
-                    dockerImage = docker.build("${DOCKER_IMAGE}")
-                }
+                sh 'docker build -t $IMAGE_NAME:latest .'
             }
         }
 
-        stage('Trivy Scan') {
+        stage('Push to Docker Hub') {
             steps {
-                sh "trivy image ${DOCKER_IMAGE} || true"
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-                script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials-id') {
-                        dockerImage.push()
-                        dockerImage.push('latest')
-                    }
+                withDockerRegistry([credentialsId: 'dockerhub', url: '']) {
+                    sh 'docker push $IMAGE_NAME:latest'
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'CI Pipeline Completed Successfully 🚀'
+        }
+        failure {
+            echo 'CI Pipeline Failed ❌'
         }
     }
 }
