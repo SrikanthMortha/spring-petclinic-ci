@@ -2,15 +2,20 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = credentials('sonar-token') // already working
-        DOCKERHUB = credentials('dockerhub')   // just added
-        IMAGE_NAME = "srikanthmortha/spring-petclinic"
+        SONARQUBE = credentials('sonar-token')         // SonarQube token from Jenkins credentials
+        DOCKERHUB = credentials('dockerhub')           // DockerHub username/password credentials
+        IMAGE_NAME = "srikanthmortha/spring-petclinic" // DockerHub image name
+    }
+
+    triggers {
+        githubPush() // Automatically trigger build on GitHub push
     }
 
     stages {
         stage('Checkout') {
             steps {
                 git url: 'git@github.com:SrikanthMortha/spring-petclinic-ci.git', branch: 'main'
+                // NOTE: Ensure Jenkins has SSH access to this GitHub repo
             }
         }
 
@@ -45,11 +50,12 @@ pipeline {
 
     post {
         success {
-            echo 'CI Pipeline Completed Successfully 🚀'
+            echo '✅ CI Pipeline Completed Successfully 🚀'
         }
         failure {
-            echo 'CI Pipeline Failed ❌'
+            echo '❌ CI Pipeline Failed'
         }
     }
 }
+
 
